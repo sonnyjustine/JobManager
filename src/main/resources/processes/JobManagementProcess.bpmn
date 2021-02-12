@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:activiti="http://activiti.org/bpmn" id="Definitions_0blekvd" targetNamespace="http://bpmn.io/schema/bpmn" exporter="bpmn-js (https://demo.bpmn.io)" exporterVersion="8.0.1">
+  <signal id="endUserTaskAfterStateA" name="endUserTaskAfterStateA" />
+  <signal id="endUserTaskAfterComplete" name="endUserTaskAfterComplete" />
+  <process id="jobManagementProcess" isExecutable="true">
+    <startEvent id="theStart" />
+    <userTask id="allocateJob" name="allocateJob">
+      <extensionElements>
+        <activiti:taskListener class="org.activiti.engine.impl.bpmn.listener.ScriptTaskListener" event="complete">
+          <activiti:field name="language">
+            <activiti:string>javascript</activiti:string>
+          </activiti:field>
+          <activiti:field name="script">
+            <activiti:string>task.setVariable("currentState", "ALLOCATED");</activiti:string>
+          </activiti:field>
+        </activiti:taskListener>
+      </extensionElements>
+    </userTask>
+    <userTask id="toStateA" name="toStateA">
+      <extensionElements>
+        <activiti:taskListener class="org.activiti.engine.impl.bpmn.listener.ScriptTaskListener" event="complete">
+          <activiti:field name="language">
+            <activiti:string>javascript</activiti:string>
+          </activiti:field>
+          <activiti:field name="script">
+            <activiti:expression>task.setVariable("currentState", "STATE_A");</activiti:expression>
+          </activiti:field>
+        </activiti:taskListener>
+      </extensionElements>
+      <incoming>fromStateBToA</incoming>
+      <outgoing>fromStateAToThrowEventEndComplete</outgoing>
+    </userTask>
+    <userTask id="toStateB" name="toStateB">
+      <extensionElements>
+        <activiti:taskListener class="org.activiti.engine.impl.bpmn.listener.ScriptTaskListener" event="complete">
+          <activiti:field name="language">
+            <activiti:string>javascript</activiti:string>
+          </activiti:field>
+          <activiti:field name="script">
+            <activiti:string>task.setVariable("currentState", "STATE_B");</activiti:string>
+          </activiti:field>
+        </activiti:taskListener>
+      </extensionElements>
+    </userTask>
+    <userTask id="completeJob" name="completeJob">
+      <extensionElements>
+        <activiti:taskListener class="org.activiti.engine.impl.bpmn.listener.ScriptTaskListener" event="complete">
+          <activiti:field name="language">
+            <activiti:string>javascript</activiti:string>
+          </activiti:field>
+          <activiti:field name="script">
+            <activiti:string>task.setVariable("currentState", "COMPLETED");</activiti:string>
+          </activiti:field>
+        </activiti:taskListener>
+      </extensionElements>
+      <incoming>fromStateBToComplete</incoming>
+      <outgoing>completeJobToCatchEvent</outgoing>
+    </userTask>
+    <sequenceFlow id="fromStart" sourceRef="theStart" targetRef="processJobFork" />
+    <parallelGateway id="processJobFork" />
+    <sequenceFlow id="fromStartToDelete" sourceRef="processJobFork" targetRef="deleteJob" />
+    <userTask id="deleteJob" name="deleteJob" />
+    <endEvent id="theEndDeleted" name="Deleted">
+      <terminateEventDefinition id="terminateEndEvent" />
+    </endEvent>
+    <sequenceFlow id="fromForkToAllocate" sourceRef="processJobFork" targetRef="allocateJob" />
+    <sequenceFlow id="fromAllocateToStateA" sourceRef="allocateJob" targetRef="toStateA" />
+    <serviceTask id="updateJobState" name="Update State" activiti:expression="${jobService.updateJobState(execution.processBusinessKey,currentState)}" />
+    <sequenceFlow id="fromAllocateToUpdate" sourceRef="allocateJob" targetRef="updateJobState" />
+    <sequenceFlow id="fromStateAToUpdate" sourceRef="toStateA" targetRef="updateJobState" />
+    <sequenceFlow id="fromStateBToUpdate" sourceRef="toStateB" targetRef="updateJobState" />
+    <sequenceFlow id="fromCompleteToUpdate" sourceRef="completeJob" targetRef="updateJobState" />
+    <serviceTask id="updateStateToDeleted" name="Update State to Deleted" activiti:expression="${jobService.updateJobState(execution.processBusinessKey,'DELETED')}" />
+    <sequenceFlow id="fromDeleteJobToUpdateDelete" sourceRef="deleteJob" targetRef="updateStateToDeleted" />
+    <sequenceFlow id="fromUpdateDeleteToEnd" sourceRef="updateStateToDeleted" targetRef="theEndDeleted" />
+    <sequenceFlow id="fromStateBToComplete" sourceRef="typeBGateway" targetRef="completeJob"/>
+    <sequenceFlow id="fromStateBToA" sourceRef="typeBGateway" targetRef="toStateA">
+      <conditionExpression xsi:type="tFormalExpression">${jobType.equals("TYPE_B")}</conditionExpression>
+    </sequenceFlow>
+    <inclusiveGateway id="typeBGateway"/>
+    <sequenceFlow id="stateBToGateway" sourceRef="toStateB" targetRef="typeBGateway" />
+    <intermediateThrowEvent id="throwEventEndStateA">
+      <signalEventDefinition id="SignalEventDefinition_0h6uinb" signalRef="endUserTaskAfterStateA" />
+    </intermediateThrowEvent>
+    <boundaryEvent id="catchEventEndStateA" attachedToRef="toStateA">
+      <signalEventDefinition id="SignalEventDefinition_0himtnx" signalRef="endUserTaskAfterStateA" />
+    </boundaryEvent>
+    <sequenceFlow id="completeJobToCatchEvent" sourceRef="completeJob" targetRef="throwEventEndStateA" />
+    <sequenceFlow id="fromThrowStateAToEndGateway" sourceRef="throwEventEndStateA" targetRef="endEventGateway" />
+    <inclusiveGateway id="endEventGateway"/>
+    <sequenceFlow id="stateACatchToEnd" sourceRef="catchEventEndStateA" targetRef="endEventGateway" />
+    <sequenceFlow id="endEventGatewayToEnd" sourceRef="endEventGateway" targetRef="endEventForStateAAndComplete" />
+    <endEvent id="endEventForStateAAndComplete">
+      <incoming>endEventGatewayToEnd</incoming>
+    </endEvent>
+    <boundaryEvent id="catchEventEndComplete" attachedToRef="completeJob">
+      <outgoing>completeCatchToEnd</outgoing>
+      <signalEventDefinition id="SignalEventDefinition_0cwmz8t" signalRef="endUserTaskAfterComplete" />
+    </boundaryEvent>
+    <sequenceFlow id="completeCatchToEnd" sourceRef="catchEventEndComplete" targetRef="endEventGateway" />
+    <intermediateThrowEvent id="throwEventEndComplete">
+      <signalEventDefinition id="SignalEventDefinition_09yq73m" signalRef="endUserTaskAfterComplete" />
+    </intermediateThrowEvent>
+    <sequenceFlow id="fromThrowCompleteToStateB" sourceRef="throwEventEndComplete" targetRef="toStateB" />
+    <sequenceFlow id="fromStateAToThrowEventEndComplete" sourceRef="toStateA" targetRef="throwEventEndComplete" />
+  </process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="jobManagementProcess">
+      <bpmndi:BPMNEdge id="fromUpdateDeleteToEnd_di" bpmnElement="fromUpdateDeleteToEnd">
+        <di:waypoint x="540" y="520" />
+        <di:waypoint x="540" y="562" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="fromDeleteJobToUpdateDelete_di" bpmnElement="fromDeleteJobToUpdateDelete">
+        <di:waypoint x="540" y="390" />
+        <di:waypoint x="540" y="440" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="fromCompleteToUpdate_di" bpmnElement="fromCompleteToUpdate">
+        <di:waypoint x="1090" y="229" />
+        <di:waypoint x="1090" y="350" />
+        <di:waypoint x="850" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="fromStateBToUpdate_di" bpmnElement="fromStateBToUpdate">
+        <di:waypoint x="870" y="229" />
+        <di:waypoint x="870" y="280" />
+        <di:waypoint x="800" y="280" />
+        <di:waypoint x="800" y="310" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="fromStateAToUpdate_di" bpmnElement="fromStateAToUpdate">
+        <di:waypoint x="650" y="229" />
+        <di:waypoint x="650" y="280" />
+        <di:waypoint x="800" y="280" />
+        <di:waypoint x="800" y="310" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="fromAllocateToUpdate_di" bpmnElement="fromAllocateToUpdate">
+        <di:waypoint x="420" y="229" />
+        <di:waypoint x="420" y="280" />
+        <di:waypoint x="800" y="280" />
+        <di:waypoint x="800" y="310" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="fromStateBToA_di" bpmnElement="fromStateBToA">
+        <di:waypoint x="945" y="110" />
+        <di:waypoint x="650" y="110" />
+        <di:waypoint x="650" y="149" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="fromStateBToComplete_di" bpmnElement="fromStateBToComplete">
+        <di:waypoint x="995" y="110" />
+        <di:waypoint x="1090" y="110" />
+        <di:waypoint x="1090" y="149" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="fromAllocateToStateA_di" bpmnElement="fromAllocateToStateA">
+        <di:waypoint x="480" y="189" />
+        <di:waypoint x="600" y="189" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="fromForkToAllocate_di" bpmnElement="fromForkToAllocate">
+        <di:waypoint x="295" y="189" />
+        <di:waypoint x="380" y="189" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="fromStartToDelete_di" bpmnElement="fromStartToDelete">
+        <di:waypoint x="270" y="214" />
+        <di:waypoint x="270" y="350" />
+        <di:waypoint x="490" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="fromStart_di" bpmnElement="fromStart">
+        <di:waypoint x="188" y="189" />
+        <di:waypoint x="245" y="189" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="stateBToGateway_di" bpmnElement="stateBToGateway">
+        <di:waypoint x="920" y="189" />
+        <di:waypoint x="970" y="189" />
+        <di:waypoint x="970" y="135" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="completeJobToCatchEvent_di" bpmnElement="completeJobToCatchEvent">
+        <di:waypoint x="1140" y="189" />
+        <di:waypoint x="1182" y="189" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="fromThrowStateAToEndGateway_di" bpmnElement="fromThrowStateAToEndGateway">
+        <di:waypoint x="1218" y="189" />
+        <di:waypoint x="1265" y="189" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="stateACatchToEnd_di" bpmnElement="stateACatchToEnd">
+        <di:waypoint x="600" y="131" />
+        <di:waypoint x="600" y="60" />
+        <di:waypoint x="1290" y="60" />
+        <di:waypoint x="1290" y="164" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="endEventGatewayToEnd_di" bpmnElement="endEventGatewayToEnd">
+        <di:waypoint x="1315" y="189" />
+        <di:waypoint x="1362" y="189" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="completeCatchToEnd_di" bpmnElement="completeCatchToEnd">
+        <di:waypoint x="1158" y="229" />
+        <di:waypoint x="1290" y="229" />
+        <di:waypoint x="1290" y="214" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="fromThrowCompleteToStateB_di" bpmnElement="fromThrowCompleteToStateB">
+        <di:waypoint x="778" y="189" />
+        <di:waypoint x="820" y="189" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="fromStateAToThrowEventEndComplete_di" bpmnElement="fromStateAToThrowEventEndComplete">
+        <di:waypoint x="700" y="189" />
+        <di:waypoint x="742" y="189" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="theStart_di" bpmnElement="theStart">
+        <dc:Bounds x="152" y="171" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_1ij2dlr_di" bpmnElement="allocateJob">
+        <dc:Bounds x="380" y="149" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="toStateA_di" bpmnElement="toStateA">
+        <dc:Bounds x="600" y="149" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="toStateB_di" bpmnElement="toStateB">
+        <dc:Bounds x="820" y="149" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="completeJob_di" bpmnElement="completeJob">
+        <dc:Bounds x="1040" y="149" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_147bano_di" bpmnElement="processJobFork">
+        <dc:Bounds x="245" y="164" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="deleteJob_di" bpmnElement="deleteJob">
+        <dc:Bounds x="490" y="310" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="theEndDeleted_di" bpmnElement="theEndDeleted">
+        <dc:Bounds x="522" y="562" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="521" y="605" width="38" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_1gnp3it_di" bpmnElement="updateJobState">
+        <dc:Bounds x="750" y="310" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_1wtl2fs_di" bpmnElement="updateStateToDeleted">
+        <dc:Bounds x="490" y="440" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_0mnf4d8_di" bpmnElement="typeBGateway">
+        <dc:Bounds x="945" y="85" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_02zjm25_di" bpmnElement="throwEventEndStateA">
+        <dc:Bounds x="1182" y="171" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_00uv378_di" bpmnElement="endEventGateway">
+        <dc:Bounds x="1265" y="164" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_024qdkh_di" bpmnElement="endEventForStateAAndComplete">
+        <dc:Bounds x="1362" y="171" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0l6hg4e_di" bpmnElement="throwEventEndComplete">
+        <dc:Bounds x="742" y="171" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_074u9zw_di" bpmnElement="catchEventEndStateA">
+        <dc:Bounds x="582" y="131" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0hz9iqv_di" bpmnElement="catchEventEndComplete">
+        <dc:Bounds x="1122" y="211" width="36" height="36" />
+      </bpmndi:BPMNShape>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</definitions>
